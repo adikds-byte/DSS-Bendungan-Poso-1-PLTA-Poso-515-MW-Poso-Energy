@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="utf8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>DSS BENDUNGAN POSO-1 PRO — Command Centre PLTA 515 MW</title>
+<style>
+:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}
+img{max-width:100%}
+[hidden]:not([hidden=until-found i]){display:none!important}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script id="mineBowTieEarlySecurityGuard">
+    (function() {
+        'use strict';
+        var attemptCount = 0;
+        var toastTimeout = null;
+        var progressInterval = null;
+
+        function playSecurityTone() {
+            try {
+                var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) return;
+                var ctx = new AudioContextClass();
+                if (ctx.state === 'suspended') ctx.resume();
+                var now = ctx.currentTime;
+
+                var osc1 = ctx.createOscillator();
+                var gain1 = ctx.createGain();
+                osc1.type = 'sawtooth';
+                osc1.frequency.setValueAtTime(960, now);
+                osc1.frequency.exponentialRampToValueAtTime(440, now + 0.14);
+                gain1.gain.setValueAtTime(0.09, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.15);
+
+                var osc2 = ctx.createOscillator();
+                var gain2 = ctx.createGain();
+                osc2.type = 'triangle';
+                osc2.frequency.setValueAtTime(540, now + 0.08);
+                osc2.frequency.exponentialRampToValueAtTime(240, now + 0.24);
+                gain2.gain.setValueAtTime(0.07, now + 0.08);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.08);
+                osc2.stop(now + 0.25);
+            } catch(e) {}
+        }
+
+        function showSecurityToastHUD(violationType, actionTitle, explanationText) {
+            attemptCount++;
+            playSecurityTone();
+            var now = new Date();
+            var timeStr = now.toLocaleTimeString('id-ID').replace(/:/g, '.') + ' WIB';
+
+            var existingHud = document.getElementById('damSecurityToastHUD');
+            if (existingHud) {
+                var badge = document.getElementById('secHudAttemptBadge');
+                if (badge) badge.innerText = 'Percobaan ke-' + attemptCount;
+                var titleEl = document.getElementById('secHudActionTitle');
+                if (titleEl) titleEl.innerText = actionTitle;
+                var expEl = document.getElementById('secHudExplanation');
+                if (expEl) expEl.innerText = explanationText;
+                var timeEl = document.getElementById('secHudTimestamp');
+                if (timeEl) timeEl.innerText = timeStr;
+                resetCountdown(3800);
+                return;
+            }
+
+            var hud = document.createElement('div');
+            hud.id = 'damSecurityToastHUD';
+            hud.className = 'dam-sec-hud';
+            hud.innerHTML = [
+                '<div class="sec-hud-card">',
+                '  <div class="sec-hud-header">',
+                '    <div class="sec-hud-title-group">',
+                '      <div class="sec-hud-icon-wrap"><i class="fa-solid fa-shield-halved sec-shield-icon"></i></div>',
+                '      <div>',
+                '        <div class="sec-hud-title">PROTOKOL KEAMANAN MINE BOW-TIE PRO</div>',
+                '        <div class="sec-hud-subtitle">EARLY GUARD V5.0 • INTEGRITAS ALGORITMA K3 & GEOTEKNIK</div>',
+                '      </div>',
+                '    </div>',
+                '    <div class="sec-hud-ctrls">',
+                '      <span id="secHudAttemptBadge" class="sec-badge-attempt">Percobaan ke-' + attemptCount + '</span>',
+                '      <button type="button" class="sec-hud-close-btn" onclick="window.BOWTIE_SECURITY_GUARD.dismiss()"><i class="fa-solid fa-xmark"></i></button>',
+                '    </div>',
+                '  </div>',
+                '  <div class="sec-hud-body">',
+                '    <div class="sec-action-banner">',
+                '      <i class="fa-solid fa-ban text-rose-400"></i>',
+                '      <span id="secHudActionTitle" class="sec-action-title">' + actionTitle + '</span>',
+                '    </div>',
+                '    <p id="secHudExplanation" class="sec-explanation">' + explanationText + '</p>',
+                '  </div>',
+                '  <div class="sec-hud-footer">',
+                '    <div class="sec-meta-left"><span class="sec-meta-dot"></span><span>Model Bow-Tie, LOPA & Hak Cipta Ir. Mohamad Hartadi Terlindungi</span></div>',
+                '    <div id="secHudTimestamp" class="sec-timestamp">' + timeStr + '</div>',
+                '  </div>',
+                '  <div class="sec-progress-track"><div id="secProgressBar" class="sec-progress-bar"></div></div>',
+                '</div>'
+            ].join('\n');
+
+            (document.body || document.documentElement).appendChild(hud);
+            resetCountdown(3800);
+        }
+
+        function resetCountdown(durationMs) {
+            if (toastTimeout) clearTimeout(toastTimeout);
+            if (progressInterval) clearInterval(progressInterval);
+            var bar = document.getElementById('secProgressBar');
+            if (bar) {
+                bar.style.width = '100%';
+                var startTime = Date.now();
+                progressInterval = setInterval(function() {
+                    var elapsed = Date.now() - startTime;
+                    var remaining = Math.max(0, 1 - (elapsed / durationMs));
+                    if (bar) bar.style.width = (remaining * 100) + '%';
+                    if (elapsed >= durationMs) clearInterval(progressInterval);
+                }, 40);
+            }
+            toastTimeout = setTimeout(dismissHUD, durationMs);
+        }
+
+        function dismissHUD() {
+            if (progressInterval) clearInterval(progressInterval);
+            var hud = document.getElementById('damSecurityToastHUD');
+            if (hud && hud.parentNode) hud.parentNode.removeChild(hud);
+        }
+
+        function handleSecurityKeydown(e) {
+            var key = (e.key || '').toLowerCase();
+            var keyCode = e.keyCode || e.which;
+            var isCtrl = e.ctrlKey || e.metaKey;
+            var isShift = e.shiftKey;
+            var isAlt = e.altKey;
+
+            if (isCtrl && (key === 'u' || keyCode === 85)) {
+                e.preventDefault(); e.stopPropagation();
+                showSecurityToastHUD('VIEW_SOURCE', 'AKSES KODE SUMBER DIBLOKIR: Ctrl + U', 'Pemeriksaan kode sumber halaman dinonaktifkan untuk melindungi algoritma kuantitatif Bow-Tie, LOPA, dan geoteknik tambang.');
+                return false;
+            }
+            if (key === 'f12' || keyCode === 123 || (isCtrl && (isShift || isAlt) && ['i','j','c','k'].includes(key))) {
+                e.preventDefault(); e.stopPropagation();
+                showSecurityToastHUD('DEVTOOLS', 'AKSES DEVTOOLS DIBLOKIR', 'Inspeksi elemen dan konsol pengembang dinonaktifkan demi menjaga integritas simulasi Critical Control Management (CCM).');
+                return false;
+            }
+            if (isCtrl && !isShift && (key === 's' || keyCode === 83)) {
+                e.preventDefault(); e.stopPropagation();
+                showSecurityToastHUD('SAVE_PAGE', 'PENYIMPANAN HALAMAN DIBLOKIR: Ctrl + S', 'Gunakan tombol resmi Ekspor Laporan PDF / CSV / JSON pada toolbar aplikasi.');
+                return false;
+            }
+        }
+
+        function handleSecurityContextMenu(e) {
+            var tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA') return true;
+            e.preventDefault(); e.stopPropagation();
+            showSecurityToastHUD('CONTEXT_MENU', 'PROTEKSI KLIK KANAN AKTIF', 'Menu konteks dinonaktifkan untuk melindungi aset visual WebGIS, matriks Bow-Tie, dan Bumi 3D.');
+            return false;
+        }
+
+        window.addEventListener('keydown', handleSecurityKeydown, true);
+        window.addEventListener('contextmenu', handleSecurityContextMenu, true);
+
+        window.BOWTIE_SECURITY_GUARD = {
+            version: '5.0.0-PRO',
+            triggerViolation: showSecurityToastHUD,
+            dismiss: dismissHUD
+        };
+    })();
+</script>
+<style id="posoProStyle">
+#posoBootOverlay{position:fixed;inset:0;z-index:9999;background:#061218;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:1.2rem;transition:opacity .7s}
+#posoBgEarth{position:fixed;inset:0;z-index:0;pointer-events:auto;opacity:0.65}
+/* Membuat elemen di atas background dapat diklik, namun rongganya (gap) membiarkan kursor mengenai Bumi 3D untuk rotasi */
+body>*:not(#posoBgEarth):not(#posoBootOverlay):not(#posoSsOverlay):not(#posoChatFab):not(#posoChatWindow):not(#damSecurityToastHUD){position:relative;z-index:10;pointer-events:none}
+.wrap > header, .wrap > nav, .wrap > footer, .wrap > p, .panel, .tip {pointer-events:auto;}
+
+#posoSsOverlay{position:fixed;inset:0;z-index:40;background:#061218;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;overflow:hidden;cursor:pointer}
+#posoChatFab{position:fixed;right:16px;bottom:16px;z-index:60;height:54px;width:54px;border-radius:9999px;background:linear-gradient(135deg,#0891b2,#0e7490);border:2px solid #67e8f9;box-shadow:0 8px 24px rgba(6,182,212,.55);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;cursor:pointer;transition:transform .2s}
+#posoChatFab:hover{transform:scale(1.08)}
+#posoChatWindow{position:fixed;right:16px;bottom:82px;z-index:60;width:min(380px,calc(100vw - 32px));height:min(560px,72vh);background:#0a1d26;border:1px solid #164e63;border-radius:16px;display:none;flex-direction:column;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+#posoChatHead{padding:10px 14px;background:linear-gradient(90deg,#0c4a6e,#075985);color:#e0f2fe;font-weight:800;font-size:12px;letter-spacing:.08em;display:flex;justify-content:space-between;align-items:center}
+#posoChatMsgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.posoBubble{max-width:88%;padding:9px 12px;border-radius:12px;font-size:12.5px;line-height:1.5;animation:posoPop .25s ease}
+@keyframes posoPop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.poso-user{align-self:flex-end;background:#075985;color:#f0f9ff}
+.poso-bot{align-self:flex-start;background:#0f2a36;border:1px solid #155e75;color:#c7ecf7}
+.posoSrc{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.posoSrc a{display:block;text-decoration:none;text-align:center;font-size:10.5px;font-weight:800;padding:7px 4px;border-radius:8px;color:#fff}
+.posoChip{display:inline-block;margin:3px 3px 0 0;padding:5px 10px;border-radius:9999px;background:#0c3040;border:1px solid #155e75;color:#7dd3fc;font-size:10.5px;font-weight:700;cursor:pointer}
+.posoQuoteCard{background:rgba(15,42,54,.82);border:1px solid #22d3ee;border-radius:16px;padding:16px 22px;max-width:min(680px,88vw);backdrop-filter:blur(8px);pointer-events:none}
+.posoFooterBar{padding:8px 12px;background:linear-gradient(90deg,#0a1d26,#123c4f);border-top:1px solid #164e63;color:#9fb8c4;font-size:10.5px;text-align:center}
+.posoFooterBar a{color:#67e8f9;text-decoration:none;font-weight:700}
+/* Security Toast HUD */
+.dam-sec-hud { position: fixed; top: 20px; right: 20px; width: min(430px, calc(100vw - 24px)); z-index: 100050; pointer-events: auto; }
+.sec-hud-card { background: linear-gradient(135deg, rgba(8, 22, 28, 0.98), rgba(2, 6, 23, 0.98), rgba(28, 10, 18, 0.98)); border: 1.5px solid #10b981; border-radius: 14px; box-shadow: 0 0 30px rgba(16, 185, 129, 0.4), 0 20px 50px rgba(0,0,0,0.9); overflow: hidden; }
+.sec-hud-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(16, 185, 129, 0.18); border-bottom: 1px solid rgba(16, 185, 129, 0.35); }
+.sec-hud-title-group { display: flex; align-items: center; gap: 10px; }
+.sec-hud-icon-wrap { width: 32px; height: 32px; border-radius: 8px; background: rgba(16, 185, 129, 0.25); border: 1px solid #34d399; display: flex; align-items: center; justify-content: center; color: #34d399; }
+.sec-hud-title { font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 900; color: #fff; }
+.sec-hud-subtitle { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #6ee7b7; }
+.sec-hud-ctrls { display: flex; align-items: center; gap: 6px; }
+.sec-badge-attempt { font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 800; color: #fde047; background: rgba(133, 77, 14, 0.5); border: 1px solid #facc15; padding: 2px 6px; border-radius: 5px; }
+.sec-hud-close-btn { width: 24px; height: 24px; border-radius: 6px; background: rgba(15,23,42,0.8); border: 1px solid #10b981; color: #a7f3d0; cursor: pointer; }
+.sec-hud-body { padding: 12px 14px; }
+.sec-action-banner { display: flex; align-items: center; gap: 8px; background: rgba(244, 63, 94, 0.18); border-left: 3.5px solid #f43f5e; padding: 6px 10px; border-radius: 0 6px 6px 0; margin-bottom: 8px; }
+.sec-action-title { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 800; color: #ffe4e6; }
+.sec-hud-footer { display: flex; justify-content: space-between; padding: 7px 14px; background: rgba(2,6,23,0.7); font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #34d399; }
+.sec-progress-track { width: 100%; height: 3px; background: #0f172a; }
+.sec-progress-bar { height: 100%; width: 100%; background: linear-gradient(90deg, #10b981, #06b6d4, #f59e0b); }
+</style>
+<script>
+EARTH_TEX_SOURCES = {
+    day:   ['https://unpkg.com/three-globe@2.45.5/example/img/earth-blue-marble.jpg',
+            'https://cdn.jsdelivr.net/npm/three-globe@2.45.5/example/img/earth-blue-marble.jpg'],
+    clouds:['https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_clouds_1024.png',
+            'https://raw.githubusercontent.com/mrdoob/three.js/r128/examples/textures/planets/earth_clouds_1024.png'],
+    stars: ['https://unpkg.com/three-globe@2.45.5/example/img/night-sky.png',
+            'https://cdn.jsdelivr.net/npm/three-globe@2.45.5/example/img/night-sky.png']
+};
+
+function earthTex(loader, urls, i, cbOk) {
+    if (i >= urls.length) { cbOk(null); return; }
+    loader.load(urls[i], t => cbOk(t), undefined, () => earthTex(loader, urls, i + 1, cbOk));
+}
+
+function loadEarthSet(loader, cbOk) {
+    earthTex(loader, EARTH_TEX_SOURCES.day, 0, dayT => {
+        if (!dayT) { cbOk(null); return; }
+        earthTex(loader, EARTH_TEX_SOURCES.clouds, 0, cloudT => {
+            earthTex(loader, EARTH_TEX_SOURCES.stars, 0, starT => {
+                cbOk({ day: dayT, clouds: cloudT, stars: starT });
+            });
+        });
+    });
+}
+
+function createRealisticEarth(container, opts) {
+    if (!container || typeof THREE === 'undefined') return null;
+    opts = opts || {};
+    const W = Math.max(container.clientWidth, 40), H = Math.max(container.clientHeight, 40);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(38, W / H, 0.1, 3000);
+    camera.position.set(0, opts.camY !== undefined ? opts.camY : 12, opts.camZ || 45); // Camera Z diperdekat agar skala penuh
+    let renderer = null;
+    try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); }
+    catch (e) { return null; }
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    container.appendChild(renderer.domElement);
+
+    const sun = new THREE.DirectionalLight(0xfff4e0, 1.35);
+    sun.position.set(60, 18, 30);
+    scene.add(sun);
+    scene.add(new THREE.AmbientLight(0x3a5f8a, 0.85));
+
+    const R = opts.radius || 24;
+    const earthGroup = new THREE.Group();
+    scene.add(earthGroup);
+
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
+
+    const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(R, 64, 64),
+        new THREE.MeshPhongMaterial({ color: 0x1d4e89, emissive: 0x0a1a2e, shininess: 8 }));
+    earthGroup.add(earthMesh);
+
+    const cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(R * 1.012, 48, 48),
+        new THREE.MeshPhongMaterial({ color: 0xdfe9f5, transparent: true, opacity: 0.38, depthWrite: false }));
+    earthGroup.add(cloudMesh);
+
+    const atmo = new THREE.Mesh(new THREE.SphereGeometry(R * 1.14, 48, 48),
+        new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.09, side: THREE.BackSide }));
+    scene.add(atmo);
+
+    const starMesh = new THREE.Mesh(new THREE.SphereGeometry(R * 60, 32, 32),
+        new THREE.MeshBasicMaterial({ color: 0x0b1220, side: THREE.BackSide }));
+    scene.add(starMesh);
+
+    loadEarthSet(loader, set => {
+        if (!set) return; 
+        earthMesh.material = new THREE.MeshPhongMaterial({ map: set.day, shininess: 6, emissive: 0x06121f, emissiveIntensity: 0.35 });
+        if (set.clouds) cloudMesh.material = new THREE.MeshPhongMaterial({ map: set.clouds, transparent: true, opacity: 0.85, depthWrite: false });
+        if (set.stars) starMesh.material = new THREE.MeshBasicMaterial({ map: set.stars, side: THREE.BackSide });
+    });
+
+    let controls = null;
+    if (typeof THREE.OrbitControls !== 'undefined') {
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.enablePan = false;
+        controls.minDistance = R * 1.2;
+        controls.maxDistance = 150;
+    }
+
+    const earthSpeed = opts.earthSpeed || 0.0009;
+    const cloudSpeed = opts.cloudSpeed || 0.0016;
+    const api = {
+        raf: 0, running: false, renderer: renderer,
+        loop: function () {
+            api.running = true;
+            earthMesh.rotation.y += earthSpeed;
+            cloudMesh.rotation.y += cloudSpeed + earthSpeed * 0.4;
+            starMesh.rotation.y += 0.00006;
+            if (controls) controls.update();
+            renderer.render(scene, camera);
+            api.raf = requestAnimationFrame(api.loop);
+        },
+        stop: function () { api.running = false; cancelAnimationFrame(api.raf); api.raf = 0; },
+        resize: function () {
+            const w = Math.max(container.clientWidth, 40), h = Math.max(container.clientHeight, 40);
+            camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h);
+        }
+    };
+    return api;
+}
+
+function initLoadingRealisticEarth() {
+    try {
+        const c = document.getElementById('loadingEarthCanvas');
+        bootEarthObj = createRealisticEarth(c, { camZ: 50, camY: 0, radius: 22, earthSpeed: 0.0011 });
+        if (bootEarthObj) bootEarthObj.loop();
+    } catch (e) { console.warn('Loading Earth 3D nonaktif:', e); }
+}
+function initBackgroundRealisticEarth() {
+    try {
+        const c = document.getElementById('bgEarthCanvas');
+        bgEarthObj = createRealisticEarth(c, { camZ: 38, camY: 5, radius: 24, earthSpeed: 0.0006, cloudSpeed: 0.0011 });
+        if (bgEarthObj) { bgEarthObj.loop(); bgEarthRAF = bgEarthObj.raf; }
+        window.addEventListener('resize', function () { try { if (bgEarthObj) bgEarthObj.resize(); if (bootEarthObj) bootEarthObj.resize(); if (ssEarthObj) ssEarthObj.resize(); } catch (e) {} });
+    } catch (e) { console.warn('Background Earth 3D nonaktif:', e); }
+}
+function initScreensaverRealisticEarth() {
+    try {
+        const c = document.getElementById('ssEarthCanvas');
+        c.innerHTML = '';
+        ssEarthObj = createRealisticEarth(c, { camZ: 32, camY: 0, radius: 22, earthSpeed: 0.0013, cloudSpeed: 0.0021 });
+        if (ssEarthObj) ssEarthObj.loop();
+        ssEarthInit = true;
+    } catch (e) { console.warn('Screensaver Earth 3D nonaktif:', e); }
+}
+</script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<style>
+:root{
+  --bg:#EEF3F5; --surface:#FFFFFF; --surface2:#F5F9FA; --ink:#0E2A35; --ink2:#46606B; --muted:#76909A;
+  --line:#D9E3E7; --grid:#E6EDF0; --accent:#0B6B8A; --accent-ink:#FFFFFF;
+  --c1:#1C6EA4; --c2:#E0702B; --c3:#7E57C2; --c4:#1F9E8F; --plan:#8497A0;
+  --ok:#2B8A4B; --warn:#B87A00; --crit:#C23B3B;
+  --font-d:'Barlow Condensed','Arial Narrow',sans-serif; --font-b:'Barlow','Segoe UI',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0A171D; --surface:#11252D; --surface2:#0E1F26; --ink:#E7F0F3; --ink2:#A3B8C0; --muted:#7C939C;
+  --line:#24404A; --grid:#1B343D; --accent:#4FB3D4; --accent-ink:#06222C;
+  --c1:#4A94CE; --c2:#DB6C32; --c3:#9672D2; --c4:#27A393; --plan:#8CA2AB;
+  --ok:#4CB872; --warn:#E0A526; --crit:#E86A6A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0A171D; --surface:#11252D; --surface2:#0E1F26; --ink:#E7F0F3; --ink2:#A3B8C0; --muted:#7C939C;
+  --line:#24404A; --grid:#1B343D; --accent:#4FB3D4; --accent-ink:#06222C;
+  --c1:#4A94CE; --c2:#DB6C32; --c3:#9672D2; --c4:#27A393; --plan:#8CA2AB;
+  --ok:#4CB872; --warn:#E0A526; --crit:#E86A6A; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:14px;line-height:1.45}
+*{box-sizing:border-box}
+/* Lebar penuh menghilangkan sisi kosong, memaksimalkan luasan display */
+.wrap{max-width:100%;margin:0 auto;padding-inline:24px;padding-block:0 32px}
+header.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding-block:18px 12px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.mark{width:38px;height:38px;flex:none}
+.brand h1{font:700 26px/1 var(--font-d);letter-spacing:.02em;text-transform:uppercase;margin:0}
+.brand p{margin:3px 0 0;color:var(--ink2);font-size:13px}
+.clock{display:flex;gap:18px;align-items:center;font-variant-numeric:tabular-nums;color:var(--ink2);font-size:13px;flex-wrap:wrap}
+.clock b{font:600 22px/1 var(--font-d);color:var(--ink);letter-spacing:.02em}
+.live{display:inline-flex;gap:6px;align-items:center;font-weight:500}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.live i{animation:none}}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:rgba(10,23,29,0.92);backdrop-filter:blur(8px);padding-block:8px;border-bottom:1px solid var(--line);margin-bottom:16px;display:flex;gap:6px;overflow-x:auto}
+nav.tabs button{font:600 15px var(--font-d);letter-spacing:.05em;text-transform:uppercase;border:1px solid var(--line);background:var(--surface);color:var(--ink2);padding:8px 16px;border-radius:6px;cursor:pointer;white-space:nowrap}
+nav.tabs button:hover{border-color:var(--accent);color:var(--ink)}
+nav.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.note{font-size:12.5px;color:var(--ink2);background:var(--surface2);border:1px dashed var(--line);border-radius:6px;padding:8px 12px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+.s3{grid-column:span 3}.s4{grid-column:span 4}.s5{grid-column:span 5}.s6{grid-column:span 6}.s7{grid-column:span 7}.s8{grid-column:span 8}.s12{grid-column:span 12}
+@media (max-width:1100px){.s3{grid-column:span 6}.s4{grid-column:span 6}.s5,.s7,.s8{grid-column:span 12}}
+@media (max-width:700px){.s3,.s4,.s6{grid-column:span 12}}
+.panel{background:rgba(17,37,45,0.93);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.ph{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.ph h3{margin:0;font:600 17px/1.15 var(--font-d);letter-spacing:.03em;text-transform:uppercase}
+.ph .meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tag{font-size:11.5px;font-weight:500;color:var(--ink2);border:1px solid var(--line);border-radius:4px;padding:1px 7px;white-space:nowrap}
+.tag.auto{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.tbtn{font:500 11.5px var(--font-b);border:1px solid var(--line);background:transparent;color:var(--ink2);border-radius:4px;padding:1px 8px;cursor:pointer}
+.tbtn:hover{color:var(--ink);border-color:var(--ink2)}
+.read{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.read b{font:600 34px/1 var(--font-d);letter-spacing:.01em}
+.read span{color:var(--ink2)}
+.read em{font-style:normal;font-size:12.5px;color:var(--ink2)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0;font-variant-numeric:tabular-nums}
+.kv dt{color:var(--ink2)} .kv dd{margin:0;text-align:right;font-weight:500}
+.bar{height:10px;background:var(--grid);border-radius:5px;overflow:hidden;display:flex;gap:2px}
+.bar i{display:block;height:100%;background:var(--c1);border-radius:5px}
+.sum{display:flex;flex-direction:column;gap:6px}
+.sum .lbl{font:600 13px var(--font-d);letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.sum .val{font:600 24px/1.05 var(--font-d)}
+.sum p{margin:0;color:var(--ink2);font-size:13px}
+.st{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.st.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}
+.st.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 16%,transparent)}
+.st.crit{color:var(--crit);background:color-mix(in srgb,var(--crit) 14%,transparent)}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font:600 12.5px var(--font-d);letter-spacing:.07em;text-transform:uppercase;color:var(--ink2)}
+td.n,th.n{text-align:right}
+.tw{overflow-x:auto;max-height:230px;overflow-y:auto}
+.chart{position:relative;min-height:60px}
+.chart svg{display:block;width:100%;overflow:visible}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin-bottom:4px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px}
+.legend i.sq{height:10px;width:10px;border-radius:2px}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.18);border-radius:6px;padding:6px 9px;font-size:12.5px;z-index:3;min-width:120px;font-variant-numeric:tabular-nums}
+.tip b{display:block;margin-bottom:3px;font-weight:600}
+.tip div{display:flex;gap:6px;align-items:center;justify-content:space-between}
+.tip div span{display:inline-flex;gap:6px;align-items:center;color:var(--ink2)}
+.tip i{width:8px;height:8px;border-radius:2px;display:inline-block}
+.stack{display:flex;flex-direction:column;gap:12px}
+.lc{display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center;font-size:12.5px}
+.lc .bar{height:22px;border-radius:4px;gap:2px}
+.lc .bar i{border-radius:3px}
+.steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.steps li{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start}
+.steps li b{width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:600 12px var(--font-d)}
+.ph-box{display:grid;place-items:center;text-align:center;min-height:170px;border:1px dashed var(--line);border-radius:6px;background:repeating-linear-gradient(135deg,transparent 0 10px,var(--grid) 10px 11px);color:var(--ink2);padding:16px}
+.ph-box b{display:block;color:var(--ink)}
+.txt{margin:0;color:var(--ink2)}
+.txt strong{color:var(--ink)}
+footer{margin-top:24px;color:var(--muted);font-size:12.5px}
+
+/* Workflow Custom Styles */
+.wf-node { padding:15px 20px; border:2px solid var(--line); border-radius:8px; background:var(--surface); font-weight:bold; white-space:nowrap; animation:pulse-node 2.5s infinite alternate; text-align:center; }
+.wf-line { flex:1; height:4px; background:linear-gradient(90deg, var(--line) 50%, var(--accent) 50%); background-size:200% 100%; animation:flow-line 1.5s linear infinite; min-width:30px; }
+@keyframes flow-line { 0% {background-position:100% 0;} 100% {background-position:0% 0;} }
+@keyframes pulse-node { to {box-shadow:0 0 12px var(--accent), inset 0 0 5px var(--accent);} }
+@media(max-width:768px){ .wf-flex { flex-direction:column; gap:10px; } .wf-line { width:4px; min-height:30px; } }
+</style>
+</head>
+<body>
+
+<!-- ==== POSO PRO: BOOT + BG + SS + CHAT ==== -->
+<div id="posoBootOverlay">
+  <div style="text-align:center;margin-top:14px">
+    <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:9999px;background:#0c2a36;border:1px solid #22d3ee;color:#67e8f9;font-family:JetBrains Mono,monospace;font-size:11px;font-weight:700">
+      <span style="width:10px;height:10px;border-radius:50%;background:#22d3ee;display:inline-block;animation:posoPing 1.4s infinite"></span>
+      <span id="posoBootClock">Memuat Hari &amp; Waktu Real-Time...</span>
+    </div>
+    <style>@keyframes posoPing{0%,100%{opacity:1}50%{opacity:.3}}</style>
+    <div style="margin-top:10px;font-family:'Barlow Condensed',Arial Narrow,sans-serif;font-size:26px;font-weight:800;letter-spacing:.08em;color:#67e8f9;text-transform:uppercase">DSS Bendungan Poso-1 Pro</div>
+    <div style="font-family:JetBrains Mono,monospace;font-size:10px;color:#7d9aa8;letter-spacing:.14em">COMMAND CENTRE &bull; PLTA 515 MW &bull; POSO ENERGY</div>
+  </div>
+  <div style="position:relative;width:340px;height:340px;display:flex;align-items:center;justify-content:center">
+    <div id="loadingEarthCanvas" style="width:100%;height:100%; cursor:grab;"></div>
+    <div style="position:absolute;inset:0;border-radius:50%;background:rgba(34,211,238,.12);filter:blur(28px);pointer-events:none"></div>
+  </div>
+  <div style="width:100%;max-width:420px;text-align:center;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:#8fb0bf;font-family:JetBrains Mono,monospace;margin-bottom:5px">
+      <span id="posoBootMsg">Menginisialisasi mesin DSS &amp; 3D Earth Engine...</span>
+      <span id="posoBootPct" style="color:#22d3ee;font-weight:800">10%</span>
+    </div>
+    <div style="width:100%;height:10px;background:#0c2a36;border:1px solid #155e75;border-radius:9999px;overflow:hidden">
+      <div id="posoBootBar" style="height:100%;width:10%;background:linear-gradient(90deg,#10b981,#14b8a6,#22d3ee);border-radius:9999px;transition:width .45s"></div>
+    </div>
+    <div style="padding-top:10px"><button type="button" onclick="posoBootDismiss()" style="padding:9px 22px;border-radius:12px;background:#0e7490;color:#fff;border:1px solid #22d3ee;font-weight:800;font-size:12px;cursor:pointer">🚀 MASUK KE DASBOR SEKARANG</button></div>
+  </div>
+</div>
+<div id="posoBgEarth" title="Putar atau Zoom Bumi 3D (Seret menggunakan Mouse)"><div id="bgEarthCanvas" style="width:100%;height:100%"></div></div>
+<div id="posoSsOverlay" hidden>
+  <div style="width:100vw;height:100vh;position:absolute;inset:0;"><div id="ssEarthCanvas" style="width:100%;height:100%;"></div></div>
+  <div id="posoSsClock" style="font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:800;color:#e0f2fe;letter-spacing:.06em; position:relative; z-index:2; margin-top:-20vh; text-shadow:0 4px 15px rgba(0,0,0,0.8);"></div>
+  <div id="posoSsDate" style="font-family:JetBrains Mono,monospace;font-size:12px;color:#67e8f9;letter-spacing:.2em; position:relative; z-index:2; text-shadow:0 4px 15px rgba(0,0,0,0.8);"></div>
+  <div id="posoSsQuote" class="posoQuoteCard" style="position:relative; z-index:2; margin-top:24px;"></div>
+  <div style="position:absolute; bottom:20px; font-size:11px; color:#8fb0bf;">Klik di area kosong atau tekan tombol apa saja untuk kembali</div>
+</div>
+<button id="posoChatFab" title="Buka Asisten AI POSO DAM"><i class="fa-solid fa-robot"></i></button>
+<div id="posoChatWindow">
+  <div id="posoChatHead"><span>🤖 POSO DAM AI ASSISTANT</span><span onclick="posoToggleChat()" style="cursor:pointer;font-size:16px" title="Tutup Chat">✕</span></div>
+  <div id="posoChatMsgs"></div>
+  <div id="posoChips" style="padding:8px 10px;border-top:1px solid #164e63;flex-wrap:wrap"></div>
+  <div style="display:flex;border-top:1px solid #164e63">
+    <input id="posoChatInput" placeholder="Tanya apa saja tentang DSS Poso-1..." style="flex:1;background:#0c2a36;border:none;color:#e0f2fe;padding:10px 12px;font-size:12.5px;outline:none" title="Ketik pesan Anda">
+    <button onclick="posoSendChat()" style="background:#0891b2;color:#fff;border:none;padding:0 16px;cursor:pointer;font-weight:800" title="Kirim Pesan">KIRIM</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="top" title="Header Command Centre">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3C14 12 8 18 8 25a12 12 0 0 0 24 0C32 18 26 12 20 3Z" fill="var(--accent)"/><path d="M12 26c3-2 5 2 8 0s5-2 8 0" stroke="var(--accent-ink)" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+      <div><h1>DSS Bendungan Poso-1</h1><p>PLTA Poso 515 MW · Poso Energy</p></div>
+    </div>
+    <div class="clock"><span class="live"><i></i>Tampilan data contoh</span><span>Pembaruan terakhir <b id="clock">--:--</b></span></div>
+  </header>
+  
+  <nav class="tabs" role="tablist" aria-label="Modul DSS" id="tabs"></nav>
+  <p class="note">Seluruh angka di halaman ini adalah data contoh untuk memperlihatkan konsep tampilan. Ruang kosong pada antarmuka dapat diklik-geser untuk mengeksplorasi modul 3D Earth Engine di latar belakang.</p>
+
+  <section id="p-beranda" role="tabpanel"><div class="grid" id="g-beranda"></div></section>
+  <section id="p-energi" role="tabpanel" hidden><div class="grid" id="g-energi"></div></section>
+  <section id="p-hidrologi" role="tabpanel" hidden><div class="grid" id="g-hidrologi"></div></section>
+  <section id="p-instrumentasi" role="tabpanel" hidden><div class="grid" id="g-instrumentasi"></div></section>
+  <section id="p-lingkungan" role="tabpanel" hidden><div class="grid" id="g-lingkungan"></div></section>
+  <section id="p-cuaca" role="tabpanel" hidden><div class="grid" id="g-cuaca"></div></section>
+  <section id="p-workflow" role="tabpanel" hidden><div class="grid" id="g-workflow"></div></section>
+  <section id="p-analisis" role="tabpanel" hidden><div class="grid" id="g-analisis"></div></section>
+  
+  <footer>Alur dasar DSS: optimalkan manfaat menyeluruh (air baku, PLTA, dataran banjir, perikanan, transportasi) dengan batas muka air minimum, level dan durasi tertinggi, debit produksi (firm dan sekunder), serta debit minimum lingkungan.</footer>
+</div>
+
+<script>
+/* ---------- helpers ---------- */
+const MON=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const NOW=new Date(2026,9,12,15,26);
+const $=(s,r=document)=>r.querySelector(s);
+let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+const gs=()=>rnd()+rnd()+rnd()-1.5;
+const nf=(v,d=0)=>v==null?'–':v.toLocaleString('id-ID',{minimumFractionDigits:d,maximumFractionDigits:d});
+const last=a=>{for(let i=a.length-1;i>=0;i--)if(a[i]!=null)return a[i]};
+const sum=a=>a.reduce((s,v)=>s+(v||0),0);
+const dlab=d=>d.getDate()+' '+MON[d.getMonth()];
+const tlab=d=>String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+const daysBack=(n)=>Array.from({length:n},(_,i)=>{const d=new Date(NOW);d.setDate(d.getDate()-(n-1-i));return d});
+const minsBack=(n,step)=>Array.from({length:n},(_,i)=>new Date(NOW.getTime()-(n-1-i)*step*60000));
+const walk=(n,start,step,pull=0,mean=start)=>{let v=start;return Array.from({length:n},()=>{v+=gs()*step+(mean-v)*pull;return v})};
+const dayOfYear=d=>Math.round((d-new Date(d.getFullYear(),0,0))/864e5);
+
+function nice(min,max,n=4){const span=(max-min)||1,s0=span/n,mag=10**Math.floor(Math.log10(s0)),m=s0/mag;
+  const step=(m<1.5?1:m<3?2:m<7?5:10)*mag,lo=Math.floor(min/step+1e-9)*step,hi=Math.ceil(max/step-1e-9)*step,t=[];
+  for(let v=lo;v<=hi+step/2;v+=step)t.push(+v.toFixed(8));return t}
+
+/* ---------- chart ---------- */
+const charts=[];
+function chart(id,c){
+  const el=document.getElementById(id);if(!el)return;
+  let lastW=0;
+  const fmt=c.fmt||(v=>nf(v,c.d||0));
+  function legend(){
+    if(c.series.length<2)return '';
+    return '<div class="legend">'+c.series.map(s=>`<span><i class="${s.type==='bar'?'sq':''}" style="background:${s.color};${s.dash?`background:repeating-linear-gradient(90deg,${s.color} 0 4px,transparent 4px 7px)`:''}"></i>${s.name}</span>`).join('')+'</div>';
+  }
+  function table(){
+    const rows=c.labels.map((l,i)=>[l,...c.series.map(s=>s.data[i])]).slice(-40).reverse();
+    return legend()+`<div class="tw"><table><thead><tr><th>${c.xname||'Waktu'}</th>${c.series.map(s=>`<th class="n">${s.name}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${r[0]}</td>${r.slice(1).map(v=>`<td class="n">${v==null?'–':fmt(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  }
+  function draw(){
+    const W=el.clientWidth;if(!W)return;lastW=W;
+    if(el.dataset.view==='table'){el.innerHTML=table();return}
+    const H=c.h||190,m={l:48,r:18,t:10,b:24},iw=W-m.l-m.r,ih=H-m.t-m.b;
+    const S=c.series,n=c.labels.length,bars=S.filter(s=>s.type==='bar'),hasBar=bars.length>0;
+    const vals=[];S.forEach(s=>s.data.forEach(v=>v!=null&&vals.push(v)));(c.refs||[]).forEach(r=>vals.push(r.y));
+    let mn=Math.min(...vals),mx=Math.max(...vals);
+    if(c.zero||hasBar)mn=Math.min(0,mn);
+    const pad=(mx-mn)*.04;if(!c.zero&&!hasBar){mn-=pad;mx+=pad}
+    const ticks=nice(mn,mx,4),y0=ticks[0],y1=ticks[ticks.length-1];
+    const X=i=>hasBar?m.l+(i+.5)*iw/n:m.l+(n===1?iw/2:i*iw/(n-1));
+    const Y=v=>m.t+ih*(1-(v-y0)/(y1-y0));
+    let g='';
+    ticks.forEach(t=>{g+=`<line x1="${m.l}" x2="${m.l+iw}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--grid)"/><text x="${m.l-6}" y="${Y(t)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${fmt(t)}</text>`});
+    const step=Math.max(1,Math.ceil(n/Math.max(2,Math.floor(iw/70))));
+    for(let i=0;i<n;i+=step){g+=`<text x="${X(i)}" y="${H-6}" text-anchor="middle" font-size="11" fill="var(--muted)">${c.labels[i]}</text>`}
+    (c.refs||[]).forEach(r=>{g+=`<line x1="${m.l}" x2="${m.l+iw}" y1="${Y(r.y)}" y2="${Y(r.y)}" stroke="${r.color}" stroke-dasharray="5 4" stroke-width="1.2"/><text x="${m.l+iw}" y="${Y(r.y)-4}" text-anchor="end" font-size="11" fill="var(--ink2)">${r.label}</text>`});
+    const nb=bars.length;let bi=0;
+    S.forEach(s=>{
+      if(s.type==='bar'){
+        const slot=iw/n,bw=Math.max(1.5,Math.min(26,(slot*.72-(nb-1)*2)/nb)),k=bi++;
+        s.data.forEach((v,i)=>{if(v==null)return;const x=X(i)-(nb*bw+(nb-1)*2)/2+k*(bw+2),yv=Y(v),yb=Y(Math.max(0,y0));
+          const top=Math.min(yv,yb),h=Math.abs(yb-yv);g+=`<rect x="${x}" y="${top}" width="${bw}" height="${Math.max(h,1)}" rx="${Math.min(3,bw/2)}" fill="${s.color}"/>`});
+      }else{
+        let d='',pen=false,first=null,lastI=null;
+        s.data.forEach((v,i)=>{if(v==null){pen=false;return}d+=(pen?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1);pen=true;if(first==null)first=i;lastI=i});
+        if(s.area&&first!=null){g+=`<path d="${d} L${X(lastI)} ${Y(y0)} L${X(first)} ${Y(y0)}Z" fill="${s.color}" fill-opacity=".12"/>`}
+        g+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.w||2}" stroke-linejoin="round" stroke-linecap="round" ${s.dash?'stroke-dasharray="6 4"':''}/>`;
+        if(lastI!=null&&!s.noend)g+=`<circle cx="${X(lastI)}" cy="${Y(s.data[lastI])}" r="4" fill="${s.color}" stroke="var(--surface)" stroke-width="2"/>`;
+      }
+    });
+    g+=`<g id="${id}-x" style="display:none"><line y1="${m.t}" y2="${m.t+ih}" stroke="var(--ink2)" stroke-width="1" stroke-dasharray="3 3"/></g><rect class="hit" x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent"/>`;
+    el.innerHTML=legend()+`<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${c.aria||''}">${g}</svg><div class="tip" style="display:none"></div>`;
+    const svg=el.querySelector('svg'),hit=svg.querySelector('.hit'),gx=svg.querySelector(`#${id}-x`),tip=el.querySelector('.tip');
+    const move=e=>{const r=svg.getBoundingClientRect(),px=(e.clientX-r.left)*(W/r.width);
+      let i=hasBar?Math.floor((px-m.l)/iw*n):Math.round((px-m.l)/iw*(n-1));i=Math.max(0,Math.min(n-1,i));
+      const x=X(i);gx.style.display='';const ln=gx.querySelector('line');ln.setAttribute('x1',x);ln.setAttribute('x2',x);
+      gx.querySelectorAll('circle').forEach(c=>c.remove());
+      S.forEach(s=>{const v=s.data[i];if(v!=null&&s.type!=='bar'){const ci=document.createElementNS('http://www.w3.org/2000/svg','circle');ci.setAttribute('cx',x);ci.setAttribute('cy',Y(v));ci.setAttribute('r',4);ci.setAttribute('fill',s.color);ci.setAttribute('stroke','var(--surface)');ci.setAttribute('stroke-width',2);gx.appendChild(ci)}});
+      tip.innerHTML=`<b>${c.labels[i]}</b>`+S.map(s=>`<div><span><i style="background:${s.color}"></i>${s.name}</span><strong>${s.data[i]==null?'–':fmt(s.data[i])}${c.unit?' '+c.unit:''}</strong></div>`).join('');
+      tip.style.display='';const tw=tip.offsetWidth;let left=x+12;if(left+tw>W-4)left=x-tw-12;tip.style.left=Math.max(0,left)+'px';tip.style.top=(legendH()+8)+'px'};
+    const legendH=()=>{const l=el.querySelector('.legend');return l?l.offsetHeight+4:0};
+    hit.addEventListener('pointermove',move);hit.addEventListener('pointerdown',move);
+    hit.addEventListener('pointerleave',()=>{gx.style.display='none';tip.style.display='none'});
+  }
+  new ResizeObserver(()=>{if(el.clientWidth!==lastW)draw()}).observe(el);
+  el._redraw=draw;charts.push(el);draw();
+}
+
+/* ---------- panel markup ---------- */
+const auto=f=>`<span class="tag auto">Otomatis · ${f}</span>`;
+const manual=f=>`<span class="tag">Input manual · ${f}</span>`;
+const P=(span,title,tags,body,tbl)=>`<article class="panel ${span}"><div class="ph"><h3>${title}</h3><div class="meta">${tags}${tbl?`<button class="tbtn" data-for="${tbl}" type="button">Tabel</button>`:''}</div></div>${body}</article>`;
+const C=id=>`<div class="chart" id="${id}"></div>`;
+const rd=(v,u,e)=>`<div class="read"><b>${v}</b><span>${u}</span>${e?`<em>${e}</em>`:''}</div>`;
+const ST={ok:['●','Normal'],warn:['▲','Waspada'],crit:['◆','Kritis']};
+const chip=(k,t)=>`<span class="st ${k}">${ST[k][0]} ${t||ST[k][1]}</span>`;
+const arrow=d=>d>0?'▲':d<0?'▼':'■';
+
+/* ---------- data ---------- */
+const lakeD=daysBack(366);
+let lk=walk(366,511.2,.012,.012,511.55);const lkOff=511.42-lk[365];
+const lake=lk.map((v,i)=>+(v+lkOff+0.45*Math.sin(i/58)).toFixed(2));lake[365]=511.42;
+const LAKE_MIN=510.70,LAKE_MAX=512.40;
+const t3=minsBack(37,5),t3l=t3.map(tlab);
+const p1=walk(37,511.41,.012,.1,511.42).map(v=>+v.toFixed(2));
+const p2=walk(37,488.74,.012,.1,488.76).map(v=>+v.toFixed(2));
+const wa=walk(37,462.10,.02,.1,462.18).map(v=>+v.toFixed(2));
+const dmpH=Array.from({length:24},(_,h)=>h>=10&&h<=13?465:h>=18&&h<=21?515:505+(h%3===0?10:0));
+const dmpAvg=sum(dmpH)/24;
+const mPlan=[215,200,225,230,235,222,205,198,205,225,235,242];
+const yr=2026,dim=m=>new Date(yr,m+1,0).getDate();
+const planDay=[],realDay=[],lblYear=[];
+for(let m=0;m<12;m++)for(let d=1;d<=dim(m);d++){const p=mPlan[m]/dim(m);planDay.push(p);lblYear.push(d+' '+MON[m])}
+const doy=dayOfYear(NOW);
+planDay.forEach((p,i)=>realDay.push(i<doy?p*(1.012+gs()*.1):null));
+const monthReal=MON.map((_,m)=>{let s=0,c=0,i0=0;for(let k=0;k<m;k++)i0+=dim(k);for(let d=0;d<dim(m);d++){const v=realDay[i0+d];if(v!=null){s+=v;c++}}return c===dim(m)?+s.toFixed(1):null});
+let cp=0,cr=0;const cumPlan=planDay.map(v=>+(cp+=v).toFixed(1)),cumReal=realDay.map(v=>v==null?null:+(cr+=v).toFixed(1));
+const d30=daysBack(30),i30=doy-30;
+const ytdPlan=cumPlan[doy-1],ytdReal=cumReal[doy-1],yrPlan=cumPlan[364];
+const reserve=lake.map(v=>+Math.max(0,(v-LAKE_MIN)*95).toFixed(1));
+const rain=d30.map(()=>rnd()<.35?0:+(rnd()**2*48).toFixed(1));
+const dasLbl=[];for(let m=0;m<12;m++)for(let k=1;k<=3;k++)dasLbl.push(`D${k} ${MON[m]}`);
+const dasProj=dasLbl.map((_,i)=>+(40+28*Math.sin((i-6)/36*2*Math.PI*1.1)+15*Math.cos(i/5)+30).toFixed(0)).map(v=>Math.max(15,v));
+const dasObs=dasProj.map((p,i)=>i<=27?Math.max(0,Math.round(p*(0.7+rnd()*.7))):null);
+const wk=Array.from({length:52},(_,i)=>{const d=new Date(NOW);d.setDate(d.getDate()-(51-i)*7);return d});
+const inflow=walk(52,130,14,.25,135).map((v,i)=>+Math.max(70,v+22*Math.sin(i/8)).toFixed(0));
+const outflow=walk(52,125,6,.3,128).map(v=>+Math.max(90,v).toFixed(0));
+const wkLake=wk.map((_,i)=>lake[Math.min(365,i*7+(365-51*7))]);
+const monQ=[],mi=[],mo=[];let ci=0,co=0;
+for(let m=0;m<10;m++){ci+=(inflow[m*4]*86400*dim(m))/1e6;co+=(outflow[m*4]*86400*dim(m))/1e6;mi.push(+ci.toFixed(0));mo.push(+co.toFixed(0))}
+while(mi.length<12){mi.push(null);mo.push(null)}
+const t288=minsBack(288,5),p1day=walk(288,511.40,.003,.05,511.42).map(v=>+v.toFixed(2));
+const pz=[503.8,504.6,505.1,506.0].map((b,k)=>walk(30,b,.03,.1,b).map((v,i)=>+(v+(lake[336+i]-511.4)*.15).toFixed(2)));
+const ts=[['Penurunan',2.4],['Hulu–hilir',1.6],['Lateral',.9]].map(([n,b])=>walk(30,b,.12,.05,b+.4).map(v=>+Math.max(0,v).toFixed(1)));
+const jm=[['J-01',1.2],['J-02',0.8],['J-03',1.5]].map(([n,b])=>walk(12,b,.08,.1,b).map(v=>+v.toFixed(2)));
+const quakes=[['12 Okt 11:42','2,1','38 km','12 km','0,002 g'],['11 Okt 03:17','1,8','54 km','9 km','0,001 g'],['09 Okt 22:05','2,6','71 km','15 km','0,002 g'],['07 Okt 14:31','1,5','29 km','7 km','0,001 g'],['04 Okt 08:50','3,0','96 km','21 km','0,003 g']];
+const LC=[['Hutan',[44.1,43.6,43.2]],['Kebun/pertanian',[31.5,31.9,32.2]],['Semak',[14.2,14.2,14.0]],['Permukiman',[6.4,6.6,6.8]],['Lahan terbuka',[3.8,3.7,3.8]]];
+const LCp=['Sem. 1 2025','Sem. 2 2025','Sem. 1 2026'];
+const LCc=['--c4','--c2','--plan','--c3','--c1'];
+const sedL=['Q4 24','Q1 25','Q2 25','Q3 25','Q4 25','Q1 26','Q2 26','Q3 26'],sed=[4.1,4.6,5.2,4.9,5.8,6.3,6.1,6.9];
+const WQ=[['pH','',7.4,'6,0–9,0',6,9],['DO','mg/L',5.6,'≥ 4',4,null],['BOD','mg/L',2.4,'≤ 3',null,3],['COD','mg/L',22.5,'≤ 25',null,25],['TSS','mg/L',31,'≤ 50',null,50],['Suhu','°C',27.8,'dev. ≤ 3',null,null]];
+function wqSt(v,lo,hi){if(lo!=null&&v<lo)return'crit';if(hi!=null&&v>hi)return'crit';if(hi!=null&&v>hi*.85)return'warn';if(lo!=null&&v<lo*1.2&&hi==null)return'warn';return'ok'}
+
+/* ---------- views ---------- */
+const lakeDelta=lake[365]-lake[364];
+const ratio=ytdReal/ytdPlan,proj=ytdReal+(yrPlan-ytdPlan)*ratio;
+const wqWarn=WQ.filter(r=>wqSt(r[2],r[4],r[5])==='warn').length;
+const pzMax=Math.max(...pz.map(a=>last(a))),thrPz=507.4;
+const tsMax=Math.max(...ts.map(a=>last(a)));
+
+$('#g-beranda').innerHTML=
+ P('s3','Operasi waduk',auto('harian'),`<div class="sum"><div class="val">${nf(last(lake),2)} mdpl</div><p>Muka air Danau Poso di antara batas ${nf(LAKE_MIN,2)} dan ${nf(LAKE_MAX,2)} mdpl.</p>${chip('ok','Dalam batas operasi')}</div>`)+
+ P('s3','Keamanan struktur',auto('harian'),`<div class="sum"><div class="val">${tsMax<5?'4 dari 4 normal':'Periksa'}</div><p>Piezometer, total station, jointmeter, dan kegempaan di bawah batas waspada.</p>${chip('ok')}</div>`)+
+ P('s3','Produksi energi',manual('harian'),`<div class="sum"><div class="val">${nf(ratio*100,1)}% rencana</div><p>Akumulasi ${nf(ytdReal,0)} GWh dari rencana ${nf(ytdPlan,0)} GWh sampai ${dlab(NOW)}.</p>${chip(ratio>=1?'ok':'warn',ratio>=1?'Di atas rencana':'Di bawah rencana')}</div>`)+
+ P('s3','Lingkungan',manual('3–6 bulan'),`<div class="sum"><div class="val">${wqWarn} parameter</div><p>Kualitas air mendekati baku mutu. Sisanya memenuhi.</p>${chip(wqWarn?'warn':'ok',wqWarn?'Perlu perhatian':'Normal')}</div>`)+
+ P('s4','Beban turbin-generator',auto('realtime'),`${rd('<span id="load">412</span>','MW','<span id="loadp">80%</span> dari 515 MW')}<div class="bar" aria-hidden="true"><i id="loadbar" style="width:80%"></i></div><dl class="kv"><dt>Daya mampu pasok</dt><dd>${nf(dmpAvg,0)} MW</dd><dt>Durasi DMP</dt><dd>24 jam</dd><dt>Cadangan daya</dt><dd id="resv">${nf(dmpAvg-412,0)} MW</dd></dl>`)+
+ P('s8','Daya mampu pasok (DMP) dan durasi',manual('harian')+auto('harian'),`${C('c-dmp')}`,'c-dmp')+
+ P('s12','Muka air Danau Poso, 1 tahun berjalan',auto('harian'),`${rd(nf(last(lake),2),'mdpl',`${arrow(lakeDelta)} ${nf(Math.abs(lakeDelta),2)} m dari kemarin`)}${C('c-lake')}`,'c-lake')+
+ P('s4','Muka air Bendungan Poso-1',auto('5 menit · 3 jam'),`${rd(nf(last(p1),2),'mdpl')}${C('c-p1')}`,'c-p1')+
+ P('s4','Muka air Bendung Poso-2',auto('5 menit · 3 jam'),`${rd(nf(last(p2),2),'mdpl')}${C('c-p2')}`,'c-p2')+
+ P('s4','Muka air hilir Watuawu',auto('5 menit · 3 jam'),`${rd(nf(last(wa),2),'mdpl')}${C('c-wa')}`,'c-wa');
+
+$('#g-energi').innerHTML=
+ P('s12','Rencana vs realisasi energi harian',manual('harian · 30 hari'),`${C('c-ed')}`,'c-ed')+
+ P('s6','Rencana vs realisasi energi bulanan',manual('bulanan · 1 tahun'),`${C('c-em')}`,'c-em')+
+ P('s6','Rencana vs akumulasi energi',manual('harian · 1 tahun'),`${rd(nf(ytdReal,0),'GWh',`${nf(ratio*100,1)}% dari rencana akumulasi`)}${C('c-ec')}`,'c-ec')+
+ P('s12','Cadangan energi',auto('harian · 1 tahun'),`${rd(nf(last(reserve),1),'GWh','setara energi tersimpan di atas muka air minimum')}${C('c-res')}`,'c-res');
+
+$('#g-hidrologi').innerHTML=
+ P('s6','Curah hujan harian',manual('harian'),`${C('c-rain')}`,'c-rain')+
+ P('s6','Proyeksi dasarian vs hujan dasarian',manual('bulanan'),`${C('c-das')}`,'c-das')+
+ P('s6','Inflow dan outflow danau',manual('mingguan'),`${C('c-io')}`,'c-io')+
+ P('s6','Elevasi danau',manual('mingguan'),`${C('c-el')}`,'c-el')+
+ P('s6','Kurva massa kumulatif inflow dan outflow',manual('bulanan'),`${C('c-mass')}`,'c-mass')+
+ P('s3','Peta awan dan radar',auto('realtime'),`<div class="ph-box"><div><b>Menunggu sumber citra</b>Hubungkan layanan radar cuaca untuk menampilkan citra awan.</div></div>`)+
+ P('s3','Peta arah angin',auto('realtime'),`<div class="ph-box"><div><b>Menunggu sumber citra</b>Hubungkan layanan angin untuk menampilkan peta arah angin.</div></div>`);
+
+$('#g-instrumentasi').innerHTML=
+ P('s12','Muka air Bendungan Poso-1, 1 hari berjalan',auto('5 menit'),`${rd(nf(last(p1day),2),'mdpl')}${C('c-p1d')}`,'c-p1d')+
+ P('s6','Piezometer',auto('harian'),`${C('c-pz')}`,'c-pz')+
+ P('s6','Robotic total station',auto('harian'),`${C('c-ts')}`,'c-ts')+
+ P('s6','Jointmeter',manual('bulanan'),`${C('c-jm')}`,'c-jm')+
+ P('s6','Kegempaan',auto('realtime'),`${rd('2,1','M','gempa terakhir 12 Okt 11:42 · PGA 0,002 g')}<div class="tw"><table><thead><tr><th>Waktu</th><th class="n">M</th><th class="n">Jarak</th><th class="n">Kedalaman</th><th class="n">PGA</th></tr></thead><tbody>${quakes.map(q=>`<tr><td>${q[0]}</td><td class="n">${q[1]}</td><td class="n">${q[2]}</td><td class="n">${q[3]}</td><td class="n">${q[4]}</td></tr>`).join('')}</tbody></table></div>`);
+
+$('#g-lingkungan').innerHTML=
+ P('s6','Tutupan lahan',manual('6 bulan'),`<div class="legend">${LC.map((l,i)=>`<span><i class="sq" style="background:var(${LCc[i]})"></i>${l[0]}</span>`).join('')}</div><div class="stack">${LCp.map((p,k)=>`<div class="lc"><span>${p}</span><div class="bar" role="img" aria-label="Tutupan lahan ${p}">${LC.map((l,i)=>`<i style="width:${l[1][k]}%;background:var(${LCc[i]})" title="${l[0]} ${nf(l[1][k],1)}%"></i>`).join('')}</div></div>`).join('')}</div><dl class="kv"><dt>Hutan</dt><dd>${nf(LC[0][1][2],1)}% (${nf(LC[0][1][2]-LC[0][1][0],1)} poin sejak ${LCp[0]})</dd><dt>Permukiman</dt><dd>${nf(LC[3][1][2],1)}% (+${nf(LC[3][1][2]-LC[3][1][0],1)} poin)</dd></dl><p class="txt">Peta tutupan lahan terbaru ditampilkan di sini setelah diunggah.</p>`)+
+ P('s6','Sedimen dasar',manual('3 bulan'),`${rd(nf(sed[7],1),'cm','tebal endapan rata-rata, triwulan terakhir')}${C('c-sed')}`,'c-sed')+
+ P('s12','Kualitas air',manual('berkala'),`<div class="tw" style="max-height:none"><table><thead><tr><th>Parameter</th><th class="n">Hasil</th><th>Satuan</th><th>Baku mutu (Kelas II)</th><th>Status</th></tr></thead><tbody>${WQ.map(r=>{const s=wqSt(r[2],r[4],r[5]);return`<tr><td>${r[0]}</td><td class="n">${nf(r[2],r[0]==='pH'||r[0]==='Suhu'||r[0]==='COD'||r[0]==='BOD'||r[0]==='DO'?1:0)}</td><td>${r[1]||'–'}</td><td>${r[3]}</td><td>${chip(s)}</td></tr>`}).join('')}</tbody></table></div>`);
+
+/* TAB BARU: CUACA (WINDY) */
+$('#g-cuaca').innerHTML=
+ P('s12','Peta Cuaca Interaktif (Windy.com)',auto('realtime'),`<iframe width="100%" height="450" src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=km/h&zoom=7&overlay=rain&product=ecmwf&level=surface&lat=-1.789&lon=120.665" frameborder="0" style="border-radius:8px; border: 1px solid var(--line);"></iframe>`)+
+ P('s4','Prediksi Cuaca 1 Minggu',auto('ECMWF'),`<p class="txt">Kondisi cuaca menunjukkan tren konvektif lokal dengan potensi hujan sedang hingga lebat di area waduk, terutama pada sore dan malam hari, memengaruhi debit *inflow* secara fluktuatif.</p>`)+
+ P('s4','Prediksi Cuaca 1 Bulan',auto('Climate Model'),`<p class="txt">Akumulasi hujan bulanan diperkirakan 15% di atas rata-rata historis, secara langsung dipengaruhi oleh siklus anomali suhu muka laut (SST) regional.</p>`)+
+ P('s4','Prediksi Cuaca 1 Tahun',auto('Long-term Forecast'),`<p class="txt">Fase ENSO netral dengan kecenderungan pergerakan La Niña lemah, sehingga strategi manajemen level waduk tahunan perlu menyiapkan target pelepasan air lebih awal.</p>`)+
+ P('s6','Analisis Korelasi',manual('Sistem'),`<p class="txt">Integrasi keluaran model satelit cuaca resolusi tinggi dengan data telemetri historis bendungan menunjukkan validitas 85%. Puncak curah hujan ekstrem dalam sepekan terakhir terekam sinkron dengan fluktuasi piezometrik dan peningkatan debit *inflow* DAS lokal.</p>`)+
+ P('s6','Risalah Teknis Geoteknik',manual('Keamanan'),`<p class="txt">Tren peningkatan debit dan hujan memengaruhi elevasi muka air tanah di bahu bendungan. Sesuai SNI 8460:2017 terkait parameter stabilitas, data ini divalidasi silang terhadap model <i>seepage</i> (rembesan) yang dihasilkan via GeoStudio SEEP/W untuk mempertahankan tingkat keamanan stabilitas <i>slope</i> di atas ambang minimum.</p>`)+
+ P('s6','Saran Teknis Infrastruktur',manual('Rekomendasi'),`<p class="txt">Lakukan peninjauan batas siaga peringatan dini (TARP) pada rentang TMA 511.50 - 512.00 mdpl. Disarankan untuk memasukkan data cuaca 1-bulan ini ke dalam simulasi tegangan-regangan tambahan menggunakan PLAXIS guna mengamati deformasi tubuh bendungan pada skenario <i>flood level</i>.</p>`)+
+ P('s6','Kesimpulan Operasional',auto('Summary'),`<p class="txt">Fusi informasi peringatan dini *Windy* ke dalam modul Command Centre secara proaktif mendongkrak <i>lead-time</i> pengambilan keputusan hidrologis hingga 48 jam, menjaga infrastruktur bendungan agar tetap beroperasi secara konservatif serta mengamankan area hilir dari fluktuasi pelepasan darurat.</p>`);
+
+/* TAB BARU: WORKFLOW DSS */
+$('#g-workflow').innerHTML=
+ P('s12','Animasi Alur Kerja (Workflow) Data DSS',auto('Live Tracking'),`<div style="display:flex; justify-content:space-between; align-items:center; padding:35px 20px; background:var(--surface2); border-radius:8px; overflow-x:auto; min-height:160px;" class="wf-flex">
+    <div class="wf-node" title="Pengambilan Data Lapangan: Piezometer, AWLR, Curah Hujan">🛰️ Sensor Lapangan</div>
+    <div class="wf-line"></div>
+    <div class="wf-node" title="Remote Terminal Unit & Pemrosesan Sinyal (MQTT)">📡 Telemetri RTU</div>
+    <div class="wf-line"></div>
+    <div class="wf-node" style="border-color:var(--accent); transform:scale(1.1); box-shadow:0 0 10px var(--accent);" title="Sistem Pakar & Big Data Cloud Database">🧠 DSS Cloud Engine</div>
+    <div class="wf-line"></div>
+    <div class="wf-node" title="Pengolahan Kestabilan Geoteknik & Banjir">💻 Analisis Stabilitas</div>
+    <div class="wf-line"></div>
+    <div class="wf-node" style="border-color:var(--ok)" title="Antarmuka Pemantauan & Keputusan Command Centre">📊 Dasbor Poso-1 Pro</div>
+ </div><div style="text-align:right; font-size:10.5px; font-weight:700; color:var(--muted); margin-top:12px; letter-spacing: 0.1em;">Newbie AI Studio</div>`)+
+ P('s6','Analisis Workflow DSS',manual('Arsitektur'),`<p class="txt">Saluran akuisisi dari sensor (piezometer, jointmeter, <i>robotic total station</i>) ditransmisikan ke peladen melalui <i>broker</i> MQTT berlatensi rendah (< 1,5 detik). Engine DSS di *cloud* bertugas merekonsiliasi serta menyaring ketidaknormalan pembacaan data sebelum dieksekusi ke dasbor Command Centre.</p>`)+
+ P('s6','Risalah Teknis Sistem',manual('Protokol'),`<p class="txt">Kerangka aplikasi dirancang menggunakan arsitektur <i>Single Page Application</i> (SPA) dan memuat aset 3D Bumi menggunakan *framework* WebGL (Three.js) yang dienkapsulasi guna menjamin performa rendering visual 60fps tanpa membocorkan kapasitas memori sistem klien.</p>`)+
+ P('s6','Saran Teknis Implementasi',manual('Keamanan Data'),`<p class="txt">Penambahan <i>edge-computing Node</i> di lokasi tapak bendungan dinilai krusial. Selain itu, diperlukan perkuatan redundansi jaringan menggunakan transmisi satelit hibrida untuk menjamin ketersediaan akses data saat badai dan memproteksi kanal DSS dari intrusi menggunakan enkripsi ujung-ke-ujung (E2EE).</p>`)+
+ P('s6','Kesimpulan Operasional',auto('Evaluasi Akhir'),`<p class="txt">Standardisasi arsitektur <i>data-to-decision</i> secara utuh telah mentransformasi sistem telemetri konvensional menjadi modul keputusan cerdas (DSS) yang interaktif, menekan potensi kesalahan interpretasi manusia (human error), serta memandu skema pengoperasian aset geoteknik dan energi dengan presisi tinggi.</p>`);
+
+// Analisis
+const mLake=MON.map((_,m)=>{const a=lake.filter((_,i)=>lakeD[i].getFullYear()===2026&&lakeD[i].getMonth()===m);return a.length?+(sum(a)/a.length).toFixed(2):null});
+const rcPlan=[511.9,512.0,512.1,512.2,512.1,511.9,511.7,511.5,511.4,511.4,511.6,511.8];
+$('#g-analisis').innerHTML=
+ P('s6','Rencana produksi energi',manual('harian'),`<p class="txt">Sampai ${dlab(NOW)}, produksi <strong>${nf(ytdReal,0)} GWh</strong> atau <strong>${nf(ratio*100,1)}%</strong> dari rencana akumulasi. Dengan kecenderungan ini, proyeksi akhir tahun <strong>${nf(proj,0)} GWh</strong> terhadap rencana ${nf(yrPlan,0)} GWh.</p><dl class="kv"><dt>Cadangan energi saat ini</dt><dd>${nf(last(reserve),1)} GWh</dd><dt>Sisa rencana tahun berjalan</dt><dd>${nf(yrPlan-ytdPlan,0)} GWh</dd></dl>${C('c-an-e')}`,'c-an-e')+
+ P('s6','Rencana operasi waduk dan lingkungan',manual('tahunan'),`<p class="txt">Realisasi rata-rata muka air bulanan terhadap rencana. Debit minimum lingkungan dijaga sepanjang tahun.</p>${C('c-an-r')}<dl class="kv"><dt>Muka air minimum</dt><dd>${nf(LAKE_MIN,2)} mdpl</dd><dt>Muka air tertinggi</dt><dd>${nf(LAKE_MAX,2)} mdpl · durasi maks. 14 hari</dd><dt>Debit produksi firm / sekunder</dt><dd>95 / 40 m³/s</dd><dt>Debit minimum lingkungan</dt><dd>8 m³/s</dd></dl>`,'c-an-r')+
+ P('s6','Keamanan struktur',auto('harian · realtime'),`<div class="tw" style="max-height:none"><table><thead><tr><th>Instrumen</th><th class="n">Terbaru</th><th class="n">Batas waspada</th><th>Status</th></tr></thead><tbody>
+  <tr><td>Piezometer (tertinggi)</td><td class="n">${nf(pzMax,2)} mdpl</td><td class="n">${nf(thrPz,2)} mdpl</td><td>${chip(pzMax<thrPz*.995?'ok':'warn')}</td></tr>
+  <tr><td>Total station (terbesar)</td><td class="n">${nf(tsMax,1)} mm</td><td class="n">10,0 mm</td><td>${chip(tsMax<8?'ok':'warn')}</td></tr>
+  <tr><td>Jointmeter (terbesar)</td><td class="n">${nf(Math.max(...jm.map(a=>last(a))),2)} mm</td><td class="n">3,00 mm</td><td>${chip('ok')}</td></tr>
+  <tr><td>Kegempaan (PGA terakhir)</td><td class="n">0,002 g</td><td class="n">0,050 g</td><td>${chip('ok')}</td></tr>
+  <tr><td>Muka air waduk</td><td class="n">${nf(last(lake),2)} mdpl</td><td class="n">${nf(LAKE_MAX,2)} mdpl</td><td>${chip('ok')}</td></tr></tbody></table></div><p class="txt">Semua instrumen berada di bawah batas waspada. Batas pada tabel ini adalah contoh dan perlu disamakan dengan ketetapan keamanan bendungan.</p>`)+
+ P('s6','RTD',manual('tahunan'),`<p class="txt">Alur penyiapan rencana tahunan operasi waduk pada dokumen perancangan:</p><ol class="steps">
+  <li><b>1</b><span>Optimalkan manfaat menyeluruh dari ketersediaan air, kondisi sosial ekonomi, peraturan, rekayasa, dan kondisi ekosistem yang diinginkan.</span></li>
+  <li><b>2</b><span>Tetapkan level minimal danau dan genangan.</span></li>
+  <li><b>3</b><span>Tetapkan waktu, durasi, dan level tertinggi danau dan genangan.</span></li>
+  <li><b>4</b><span>Tetapkan debit produksi: firm discharge dan secondary discharge.</span></li>
+  <li><b>5</b><span>Tetapkan debit minimum untuk lingkungan.</span></li></ol>`);
+
+/* ---------- charts ---------- */
+const FI={fmt:v=>nf(v,2)};
+chart('c-dmp',{labels:dmpH.map((_,h)=>String(h).padStart(2,'0')+':00'),series:[{name:'DMP',data:dmpH,color:'var(--c1)',type:'bar'}],refs:[{y:515,label:'Kapasitas terpasang 515 MW',color:'var(--plan)'}],unit:'MW',h:170,xname:'Jam',aria:'DMP per jam 24 jam'});
+chart('c-lake',{labels:lakeD.map(dlab),series:[{name:'Muka air',data:lake,color:'var(--c1)',area:true}],refs:[{y:LAKE_MAX,label:'Batas atas',color:'var(--warn)'},{y:LAKE_MIN,label:'Batas bawah',color:'var(--crit)'}],d:2,unit:'mdpl',h:230,xname:'Tanggal',aria:'Muka air Danau Poso 1 tahun'});
+[['c-p1',p1,'--c1'],['c-p2',p2,'--c4'],['c-wa',wa,'--c3']].forEach(([id,d,c])=>chart(id,{labels:t3l,series:[{name:'Muka air',data:d,color:`var(${c})`,area:true}],d:2,unit:'mdpl',h:150,xname:'Waktu',aria:'Muka air 3 jam'}));
+chart('c-ed',{labels:d30.map(dlab),series:[{name:'Rencana',data:planDay.slice(i30,doy).map(v=>+v.toFixed(2)),color:'var(--plan)',dash:true,noend:true},{name:'Realisasi',data:realDay.slice(i30,doy).map(v=>+v.toFixed(2)),color:'var(--c1)',type:'bar'}],d:2,unit:"GWh",h:220,xname:"Tanggal",zero:true});
+chart('c-em',{labels:MON,series:[{name:'Rencana',data:mPlan,color:'var(--plan)',type:'bar'},{name:'Realisasi',data:monthReal,color:'var(--c1)',type:'bar'}],unit:'GWh',h:220,xname:'Bulan'});
+chart('c-ec',{labels:lblYear,series:[{name:'Rencana',data:cumPlan,color:'var(--plan)',dash:true,noend:true},{name:'Akumulasi',data:cumReal,color:'var(--c1)',area:true}],unit:"GWh",h:220,xname:"Tanggal",zero:true});
+chart('c-res',{labels:lakeD.map(dlab),series:[{name:'Cadangan energi',data:reserve,color:'var(--c4)',area:true}],d:1,unit:'GWh',h:190,xname:'Tanggal'});
+chart('c-rain',{labels:d30.map(dlab),series:[{name:'Hujan',data:rain,color:'var(--c1)',type:'bar'}],unit:'mm',h:200,xname:'Tanggal',d:1});
+chart('c-das',{labels:dasLbl,series:[{name:'Hujan dasarian',data:dasObs,color:'var(--c1)',type:'bar'},{name:'Proyeksi',data:dasProj,color:'var(--c2)',noend:true}],unit:'mm',h:200,xname:'Dasarian'});
+chart('c-io',{labels:wk.map(dlab),series:[{name:'Inflow',data:inflow,color:'var(--c1)'},{name:'Outflow',data:outflow,color:'var(--c2)'}],unit:'m³/s',h:200,xname:'Minggu'});
+chart('c-el',{labels:wk.map(dlab),series:[{name:'Elevasi',data:wkLake,color:'var(--c4)',area:true}],refs:[{y:LAKE_MAX,label:'Batas atas',color:'var(--warn)'},{y:LAKE_MIN,label:'Batas bawah',color:'var(--crit)'}],d:2,unit:'mdpl',h:200,xname:'Minggu'});
+chart('c-mass',{labels:MON,series:[{name:'Inflow kumulatif',data:mi,color:'var(--c1)'},{name:'Outflow kumulatif',data:mo,color:'var(--c2)'}],unit:'juta m³',h:200,xname:'Bulan',zero:true});
+chart('c-p1d',{labels:t288.map(tlab),series:[{name:'Muka air',data:p1day,color:'var(--c1)',area:true}],d:2,unit:'mdpl',h:200,xname:'Waktu'});
+chart('c-pz',{labels:d30.map(dlab),series:pz.map((a,i)=>({name:'P-0'+(i+1),data:a,color:`var(--c${i+1})`,w:1.8})),refs:[{y:thrPz,label:'Batas waspada',color:'var(--warn)'}],d:2,unit:'mdpl',h:210,xname:'Tanggal'});
+chart('c-ts',{labels:d30.map(dlab),series:ts.map((a,i)=>({name:['Penurunan','Hulu–hilir','Lateral'][i],data:a,color:`var(--c${i+1})`,w:1.8})),refs:[{y:10,label:'Batas waspada 10 mm',color:'var(--warn)'}],d:1,unit:'mm',h:210,xname:'Tanggal',zero:true});
+chart('c-jm',{labels:MON,series:jm.map((a,i)=>({name:'J-0'+(i+1),data:a.map((v,k)=>k<10?v:null),color:`var(--c${i+1})`,w:1.8})),d:2,unit:'mm',h:200,xname:'Bulan',zero:true});
+chart('c-sed',{labels:sedL,series:[{name:'Endapan',data:sed,color:'var(--c2)',type:'bar'}],d:1,unit:'cm',h:200,xname:'Periode'});
+chart('c-an-e',{labels:lblYear,series:[{name:'Rencana',data:cumPlan,color:'var(--plan)',dash:true,noend:true},{name:'Realisasi',data:cumReal,color:'var(--c1)'}],unit:"GWh",h:170,xname:"Tanggal",zero:true});
+chart('c-an-r',{labels:MON,series:[{name:'Rencana',data:rcPlan,color:'var(--plan)',dash:true,noend:true},{name:'Realisasi',data:mLake,color:'var(--c1)'}],refs:[{y:LAKE_MAX,label:'Batas atas',color:'var(--warn)'},{y:LAKE_MIN,label:'Batas bawah',color:'var(--crit)'}],d:2,unit:'mdpl',h:190,xname:'Bulan'});
+
+document.querySelectorAll('.tbtn').forEach(b=>b.addEventListener('click',()=>{
+  const el=document.getElementById(b.dataset.for);const t=el.dataset.view==='table';
+  el.dataset.view=t?'':'table';b.textContent=t?'Tabel':'Grafik';el._redraw()}));
+
+/* ---------- tabs ---------- */
+const TABS=[
+  ['beranda','Beranda'],
+  ['energi','Energi'],
+  ['hidrologi','Hidrologi'],
+  ['instrumentasi','Instrumentasi'],
+  ['lingkungan','Lingkungan'],
+  ['cuaca','Cuaca (Windy)'],
+  ['workflow','Workflow & DSS'],
+  ['analisis','Analisis']
+];
+const nav=$('#tabs');
+nav.innerHTML=TABS.map(([id,l])=>`<button type="button" role="tab" id="t-${id}" data-id="${id}" aria-selected="false" title="Buka Tab ${l}">${l}</button>`).join('');
+function show(id){
+  if(!TABS.some(t=>t[0]===id))id='beranda';
+  TABS.forEach(([k])=>{$('#p-'+k).hidden=k!==id;$('#t-'+k).setAttribute('aria-selected',k===id)});
+  charts.forEach(c=>c._redraw&&c.clientWidth&&c._redraw());
+  try{history.replaceState(null,'','#'+id)}catch(e){}
+  
+  // Inject Universal Tooltip on View Change
+  setTimeout(()=>{
+      document.querySelectorAll('.panel, button:not(#t-'+id+'), a, .chart').forEach(el => {
+          if (!el.hasAttribute('title')) {
+              let headerText = el.querySelector('h3') ? el.querySelector('h3').innerText : el.innerText.trim();
+              if(headerText && headerText.length > 0) {
+                  el.setAttribute('title', 'Fitur/Informasi: ' + headerText.substring(0, 40) + '...');
+              }
+          }
+      });
+  }, 100);
+}
+nav.addEventListener('click',e=>{const b=e.target.closest('button');if(b)show(b.dataset.id)});
+show((location.hash||'').slice(1));
+
+/* ---------- live ticks (simulated) ---------- */
+function tick(){
+  const v=Math.round(412+gs()*14),p=Math.round(v/515*100);
+  $('#load').textContent=v;$('#loadp').textContent=p+'%';$('#loadbar').style.width=p+'%';
+  $('#resv').textContent=nf(dmpAvg-v,0)+' MW';
+  const d=new Date();$('#clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
+}
+tick();setInterval(tick,5000);
+</script>
+
+<div class="posoFooterBar wrap" style="margin-top:18px">Dikembangkan oleh <b>Ir. Mohamad Hartadi</b> &nbsp;|&nbsp; <a href="https://newbieonline7.blogspot.com" target="_blank" rel="noopener">newbieonline7.blogspot.com</a> &nbsp;|&nbsp; <a href="https://wa.me/6282231036047" target="_blank" rel="noopener">WA 0822-3103-6047</a></div>
+<script id="posoProJS">
+// ================= POSO DSS PRO: BOOT + SS + CHATBOT =================
+function posoBootDismiss(){
+  const ov=document.getElementById('posoBootOverlay');
+  if(!ov||ov.style.display==='none')return;
+  ov.style.display='none';
+  try{ if(window._posoBootRaf)cancelAnimationFrame(window._posoBootRaf); if(window.loadingEarth&&window.loadingEarth.stop)window.loadingEarth.stop(); }catch(e){}
+  try{ if(typeof initBackgroundRealisticEarth==='function')initBackgroundRealisticEarth(); }catch(e){}
+}
+(function(){
+  try{ if(typeof initLoadingRealisticEarth==='function')initLoadingRealisticEarth(); }catch(e){}
+  const bar=document.getElementById('posoBootBar'),pct=document.getElementById('posoBootPct'),msg=document.getElementById('posoBootMsg'),clk=document.getElementById('posoBootClock');
+  let p=10;
+  const iv=setInterval(()=>{
+    p+=Math.random()*11;
+    bar.style.width=Math.min(100,p)+'%';pct.textContent=Math.round(Math.min(100,p))+'%';
+    if(p>=45)msg.textContent='Memuat panel hidrologi & telemetri...';
+    if(p>=75)msg.textContent='Menyinkronkan Bumi 3D & atmosfer...';
+    if(p>=100){clearInterval(iv);msg.textContent='Sistem siap.';setTimeout(posoBootDismiss,500);}
+  },280);
+  const tickC=()=>{try{clk.textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+' • '+new Date().toLocaleTimeString('id-ID')}catch(e){}};
+  tickC();setInterval(tickC,1000);
+})();
+
+// ================= SCREENSAVER =================
+const POSSO_QUOTES=[
+ {t:'KATA BIJAK',c:'#22d3ee',q:'"Air adalah pengajar terbaik: ia mengalir tanpa sombong, memberi tanpa pamrih, dan kembali ke langit dengan rendah hati."'},
+ {t:'MOTIVASI',c:'#f59e0b',q:'"Bendungan bukan sekadar batu dan beton; ia adalah janji kepada anak cucu bahwa listrik menyala dan sawah tak kekeringan."'},
+ {t:'DOA',c:'#10b981',q:'"Ya Tuhan, jadikan air waduk kami berkah, penjaga kehidupan, bukan musibah bagi mereka di hilir."'},
+ {t:'KATA BIJAK',c:'#22d3ee',q:'"Tidak ada bendungan yang kokoh di atas fondasi data yang bohong. Telemetri yang jujur adalah keamanan sejati."'},
+ {t:'MOTIVASI',c:'#f59e0b',q:'"Operator yang membaca kurva inflow hari ini adalah penyelamat desa di hilir esok hari."'},
+ {t:'DOA',c:'#10b981',q:'"Semoga setiap turbin yang berputar membawa berkah bagi negeri, dan setiap pintu air yang dibuka penuh kehati-hatian."'},
+ {t:'KATA BIJAK',c:'#22d3ee',q:'"Energi terbaik bukan yang paling besar, melainkan yang paling dijaga keseimbangannya."'},
+ {t:'MOTIVASI',c:'#f59e0b',q:'"DSS membantu memutuskan, namun keputusan tetap milik manusia. Kebijaksanaan tak pernah tergantikan mesin."'}
+];
+let posoSsOn=false,posoSsIv=null,posoSsQv=null,posoSsIdx=0,posoIdleT=null;
+function posoShowQuote(){
+  const q=POSSO_QUOTES[posoSsIdx%POSSO_QUOTES.length];posoSsIdx++;
+  const el=document.getElementById('posoSsQuote');
+  el.innerHTML='<div style="text-align:center"><span style="display:inline-block;padding:3px 12px;border-radius:9999px;font-size:9.5px;font-weight:900;letter-spacing:.18em;color:#06222c;background:'+q.c+'">'+q.t+'</span><div style="margin-top:10px;font-size:15px;font-style:italic;color:#e8f6fb;line-height:1.6">'+q.q+'</div></div>';
+  el.classList.remove('msQuoteFade');void el.offsetWidth;el.classList.add('msQuoteFade');
+  el.style.animation='posoPop .9s ease';
+}
+function posoSsStart(){
+  const ov=document.getElementById('posoSsOverlay');
+  if(!ov||ov.hidden===false)return;
+  ov.hidden=false;posoSsOn=true;
+  try{ if(typeof initScreensaverRealisticEarth==='function')initScreensaverRealisticEarth(); }catch(e){}
+  const clock=()=>{const d=new Date();document.getElementById('posoSsClock').textContent=String(d.getHours()).padStart(2,'0')+'.'+String(d.getMinutes()).padStart(2,'0')+'.'+String(d.getSeconds()).padStart(2,'0');document.getElementById('posoSsDate').textContent=d.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).toUpperCase();};
+  clock();posoSsIv=setInterval(clock,1000);
+  posoShowQuote();posoSsQv=setInterval(posoShowQuote,8000);
+  const fab=document.getElementById('posoChatFab'),cw=document.getElementById('posoChatWindow');
+  if(fab){fab.dataset.d=fab.style.display;fab.style.display='none';}
+  if(cw){cw.dataset.d=cw.style.display;cw.style.display='none';}
+}
+function posoSsStop(e){
+  // Jangan hentikan screensaver jika sedang click-drag pada kanvas bumi untuk memutarnya
+  if(e && e.target && e.target.tagName === 'CANVAS' && e.type === 'click') return; 
+
+  const ov=document.getElementById('posoSsOverlay');
+  if(!ov||ov.hidden!==false)return;
+  try{ if(window.ssEarth&&window.ssEarth.stop)window.ssEarth.stop(); }catch(err){}
+  ov.hidden=true;posoSsOn=false;
+  if(posoSsIv)clearInterval(posoSsIv);if(posoSsQv)clearInterval(posoSsQv);
+  const fab=document.getElementById('posoChatFab'),cw=document.getElementById('posoChatWindow');
+  if(fab)fab.style.display=fab.dataset.d||'';
+  if(cw)cw.style.display=cw.dataset.d||'none';
+}
+(function(){
+  ['keydown','mousemove','touchstart','scroll'].forEach(ev=>document.addEventListener(ev,()=>{
+    if(!posoSsOn){clearTimeout(posoIdleT);posoIdleT=setTimeout(posoSsStart,4*60*1000);}
+  },{passive:true}));
+  document.getElementById('posoSsOverlay').addEventListener('click', posoSsStop);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')posoSsStop();});
+})();
+
+// ================= CHATBOT POSO DAM AI =================
+const POSO_KB=[
+ {k:['poso','bendungan poso','poso-1'],a:'<b>Bendungan Poso-1</b> adalah bendungan dengan PLTA berkapasitas <b>515 MW</b> yang dioperasikan Poso Energy di Sungai Poso, Sulawesi Tengah. Konsep DSS aplikasi ini: mengoptimalkan manfaat menyeluruh (PLTA, air baku, perikanan, dataran banjir, transportasi) dengan batas muka air minimum, batas level/durasi tertinggi, debit firm & sekunder, serta debit minimum lingkungan.',c:'#10b981'},
+ {k:['tma','muka air','elevasi'],a:'<b>Muka Air (TMA)</b> dipantau kontinu terhadap batas atas (spillway design flood level) dan batas bawah (minimum operating level). Panel Muka Air menampilkan rencana vs realisasi; jika proyeksi mendekati batas waspada, sistem menandai status <b>WASPADA</b>.',c:'#22d3ee'},
+ {k:['inflow','outflow','debit'],a:'<b>Inflow/Outflow</b> adalah neraca air waduk: inflow dari hujan DAS Poso dan aliran Sungai Poso, outflow melalui turbin PLTA dan pintu spillway. Routing waduk menghitung perubahan TMA: jika inflow &gt; outflow, muka air naik; keputusan pembukaan pintu mempertimbangkan kapasitas hilir.',c:'#0ea5e9'},
+ {k:['hujan','dasarian','proyeksi'],a:'<b>Hujan dasarian</b> dipantau per 10 hari. Panel proyeksi menggunakan pola historis DAS Poso (puncak musim hujan Desember-Februari) untuk memperkirakan inflow 1-2 dasarian ke depan dengan batas waspada hujan 10 mm/hari.',c:'#f59e0b'},
+ {k:['plta','energi','turbin','mw'],a:'<b>PLTA Poso-1</b> berkapasitas <b>515 MW</b>. Cadangan energi dihitung dari volume air tersimpan di atas elevasi minimum turbin. Manajemen energi mengatur jadwal pelepasan air sesuai beban puncak sistem (jam sore) tanpa mengorbankan batas TMA.',c:'#8b5cf6'},
+ {k:['endapan','sedimen','sedimentasi'],a:'<b>Endapan sedimen</b> mengurangi kapasitas efektif waduk. Monitoring per periode membandingkan volume endapan terukur vs desain; laju sedimentasi DAS Poso relatif rendah, namun tetap dikontrol terhadap umur layanan waduk.',c:'#eab308'},
+ {k:['dss','sistem pendukung','konsep'],a:'<b>DSS (Decision Support System)</b> Bendungan Poso-1 membantu operator mengambil keputusan operasi harian: kapan membuka pintu, target elevasi, jadwal pembangkitan, dan antisipasi banjir, berdasarkan data telemetri + analisis. Angka pada dasbor ini adalah <i>data contoh</i> untuk demonstrasi konsep tampilan.',c:'#14b8a6'},
+ {k:['mitigasi','banjir','spillway','pintu'],a:'<b>Mitigasi banjir</b>: spillway Poso-1 dirancang untuk melepas banjir desain dengan freeboard aman. Protokol TARP menetapkan siaga level 1-4: pemantauan rutin → pembatasan pembangkitan → pembukaan pintu bertahap → pemberitahuan hilir, dengan koordinasi BPBD Poso.',c:'#f43f5e'},
+ {k:['telemetri','sensor','monitoring'],a:'<b>Telemetri</b> meliputi AWLR (TMA), ARS (hujan), debit inflow/outflow, dan status instrumen gerbang. Setiap panel pada aplikasi ini mencantumkan label sumber data dan frekuensi pembaruan sesuai dokumen perancangan DSS.',c:'#06b6d4'},
+ {k:['profil','hartadi','pembuat','developer'],a:'Aplikasi dikembangkan oleh <b>Ir. Mohamad Hartadi</b>. Blog: <a href="https://newbieonline7.blogspot.com" target="_blank" style="color:#67e8f9">newbieonline7.blogspot.com</a> | WhatsApp: <a href="https://wa.me/6282231036047" target="_blank" style="color:#67e8f9">0822-3103-6047</a>.',c:'#a78bfa'}
+];
+function posoSrcGrid(q){
+  const qq=encodeURIComponent(q);
+  return '<div class="posoSrc">'+
+  '<a href="https://id.wikipedia.org/w/index.php?search='+qq+'" target="_blank" style="background:#10b981">📖 Baca Wikipedia ID</a>'+
+  '<a href="https://en.wikipedia.org/w/index.php?search='+qq+'" target="_blank" style="background:#059669">🌍 Wikipedia EN</a>'+
+  '<a href="https://www.google.com/search?q='+qq+'" target="_blank" style="background:#2563eb">🔎 Google</a>'+
+  '<a href="https://www.bing.com/search?q='+qq+'" target="_blank" style="background:#d97706">🅱 Bing AI</a>'+
+  '<a href="https://copilot.microsoft.com/?q='+qq+'" target="_blank" style="background:#dc2626">🤖 Copilot AI</a>'+
+  '<a href="https://gemini.google.com/app" target="_blank" style="background:#7c3aed">✨ Gemini AI</a></div>';
+}
+function posoAddMsg(html,who){
+  const box=document.getElementById('posoChatMsgs');
+  const d=document.createElement('div');d.className='posoBubble '+(who==='user'?'poso-user':'poso-bot');d.innerHTML=html;
+  box.appendChild(d);box.scrollTop=box.scrollHeight;
+}
+async function posoSmartReply(q){
+  const ql=q.toLowerCase();
+  for(const e of POSO_KB){if(e.k.some(k=>ql.includes(k))){
+    posoAddMsg('<div style="border-left:3px solid '+e.c+';padding-left:8px">'+e.a+'</div>'+posoSrcGrid(q),'bot');return;}}
+  try{
+    const r=await fetch('https://id.wikipedia.org/w/api.php?action=query&list=search&srsearch='+encodeURIComponent(q)+'&utf8=&format=json&origin=*');
+    const d=await r.json();
+    if(d.query&&d.query.search&&d.query.search.length){
+      const t=d.query.search[0];
+      posoAddMsg('<div style="border-left:3px solid #10b981;padding-left:8px"><b>Menemukan referensi dari Wikipedia:</b><br>'+t.snippet.replace(/<[^>]+>/g,'')+'...<br><a href="https://id.wikipedia.org/wiki/'+encodeURIComponent(t.title)+'" target="_blank" style="color:#67e8f9">[Baca Artikel Selengkapnya]</a></div>'+posoSrcGrid(q),'bot');return;
+    }
+  }catch(e){}
+  posoAddMsg('<i>Saya belum menemukan jawaban lokalnya. Silakan cek sumber rujukan berikut atau tanya dengan kata kunci lain (tma, inflow, plta, dss, hujan...):</i>'+posoSrcGrid(q),'bot');
+}
+function posoSendChat(){
+  const inp=document.getElementById('posoChatInput');const q=inp.value.trim();if(!q)return;inp.value='';
+  posoAddMsg(q,'user');
+  const ql=q.toLowerCase();
+  if(/jam|pukul/.test(ql)){posoAddMsg('Jam sistem: <b>'+new Date().toLocaleTimeString('id-ID')+'</b>, '+new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),'bot');return;}
+  if(/tanggal|hari ini/.test(ql)){posoAddMsg('Hari ini <b>'+new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</b>','bot');return;}
+  if(/screensaver|layar hemat/.test(ql)){posoSsStart();return;}
+  if(/bantuan|help/.test(ql)){posoAddMsg('<b>Perintah tersedia:</b> jam, tanggal, screensaver, profil, plus kata kunci: poso, tma, inflow, hujan, plta, energi, endapan, dss, mitigasi, telemetri. Topik lain → cari ke Wikipedia otomatis.','bot');return;}
+  posoSmartReply(q);
+}
+function posoToggleChat(){
+  const w=document.getElementById('posoChatWindow');
+  w.style.display=(w.style.display==='flex')?'none':'flex';
+  if(w.style.display==='flex'&&!w.dataset.hello){w.dataset.hello='1';
+    posoAddMsg('Selamat datang di <b>POSO DAM AI ASSISTANT</b> 🤖 — saya siap membantu informasi DSS Bendungan Poso-1: TMA, inflow/outflow, hujan, PLTA 515 MW, endapan, mitigasi banjir, hingga pencarian Wikipedia.','bot');}
+}
+document.getElementById('posoChatFab').addEventListener('click',posoToggleChat);
+document.getElementById('posoChatInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.stopPropagation();posoSendChat();}});
+(function(){
+  const chips=['Help','TMA','Inflow','Hujan','PLTA 515 MW','Endapan','DSS','Screensaver'];
+  const box=document.getElementById('posoChips');
+  chips.forEach(c=>{const s=document.createElement('span');s.className='posoChip';s.textContent=c;
+    s.onclick=()=>{document.getElementById('posoChatInput').value=c;posoSendChat();};box.appendChild(s);});
+})();
+console.log('%cPOSO DSS PRO READY','color:#22d3ee;font-weight:900');
+</script>
+</body>
+</html>
